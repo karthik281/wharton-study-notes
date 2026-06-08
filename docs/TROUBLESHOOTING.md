@@ -80,8 +80,8 @@
 **Fix:** Delete the course `Notes.md` file and re-run the agent. All sessions will be reprocessed from scratch.
 
 ```powershell
-# Example: delete notes for OIDD 6360
-Remove-Item "output\OIDD 6360 (51 Global) - Summer 2026\OIDD 6360 - Notes.md"
+# Example: delete notes for OIDD 6360 (adjust path to your STUDY_NOTES_OUTPUT_DIR)
+Remove-Item "C:\Users\raoka\Documents\WEMBA\Term 4\Wharton Study Notes\OIDD 6360 (51 Global) - Summer 2026\OIDD 6360 - Notes.md"
 ```
 
 Then re-run:

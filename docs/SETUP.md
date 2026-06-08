@@ -82,6 +82,9 @@ ANTHROPIC_API_KEY=sk-ant-...your-key-here...
 PANOPTO_SERVER=upenn.hosted.panopto.com
 PANOPTO_COOKIE=.ASPXAUTH=...your-cookie-here...
 MAX_SESSIONS_PER_RUN=20
+
+# Optional: override where notes are saved (default: C:\Users\raoka\Documents\WEMBA\Term 4\Wharton Study Notes)
+# STUDY_NOTES_OUTPUT_DIR=C:\path\to\your\notes
 ```
 
 For a first-time backfill of older sessions, set `MAX_SESSIONS_PER_RUN=50` (or higher).
@@ -102,15 +105,16 @@ The agent will:
 5. Save notes to `output/`
 
 Watch the terminal for progress. Any errors appear in `logs/agent.log`.
+Notes are saved to `C:\Users\raoka\Documents\WEMBA\Term 4\Wharton Study Notes` (or your `STUDY_NOTES_OUTPUT_DIR`).
 
 ---
 
-## 7. What to expect in output/
+## 7. What to expect in the output folder
 
-After a successful run, the `output/` folder looks like:
+After a successful run, the output folder (`C:\Users\raoka\Documents\WEMBA\Term 4\Wharton Study Notes` by default) looks like:
 
 ```
-output/
+Wharton Study Notes/
 +-- OIDD 6360 (51 Global) - Summer 2026/
 |   +-- OIDD 6360 - Notes.md          <- combined notes for all sessions
 |   +-- Session 01 - 2026-06-05 - Week 1 - Intro/

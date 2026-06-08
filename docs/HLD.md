@@ -52,7 +52,7 @@ A biweekly Python agent that authenticates to Panopto via browser cookie, discov
       - Fallback: GET /Panopto/Pages/Transcription/GenerateSRT.ashx?id={id}&language=0
    d. Save transcript.txt to session materials folder
    e. NotesGenerator sends transcript to Claude -> Markdown notes
-   f. Append notes to output/{CourseName}/{COURSE CODE} - Notes.md
+   f. Append notes to <output-dir>/{CourseName}/{COURSE CODE} - Notes.md
 7. Logs written to logs/agent.log with rotation
 ```
 
@@ -70,8 +70,11 @@ A biweekly Python agent that authenticates to Panopto via browser cookie, discov
 
 ## Output Structure
 
+Default output directory: `C:\Users\raoka\Documents\WEMBA\Term 4\Wharton Study Notes`
+Override with `STUDY_NOTES_OUTPUT_DIR` in `.env`.
+
 ```
-output/
+<output-dir>/
 +-- OIDD 6360 (51 Global) - Summer 2026/
 |   +-- OIDD 6360 - Notes.md           <- all sessions combined
 |   +-- Session 01 - 2026-06-01 - Intro to Operations/

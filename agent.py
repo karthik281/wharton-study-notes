@@ -20,7 +20,9 @@ load_dotenv()
 # ---------------------------------------------------------------------------
 SCRIPT_DIR = Path(__file__).parent
 LOG_DIR = SCRIPT_DIR / "logs"
-OUTPUT_DIR = SCRIPT_DIR / "output"
+OUTPUT_DIR = Path(
+    os.getenv("STUDY_NOTES_OUTPUT_DIR", r"C:\Users\raoka\Documents\WEMBA\Term 4\Wharton Study Notes")
+)
 
 REQUIRED_ENV_VARS = ["ANTHROPIC_API_KEY"]
 

@@ -22,7 +22,6 @@ Wharton Study Notes/
 |   +-- test_panopto_client.py
 |   +-- test_file_processor.py
 |   +-- test_notes_generator.py
-+-- output/                # Gitignored -- organised by course
 +-- logs/                  # Gitignored -- rotating agent.log
 +-- .env / .env.example
 +-- requirements.txt
@@ -84,7 +83,7 @@ Checks at least one Panopto auth method is configured (raises `EnvironmentError`
 Canvas vars are optional -- logs info if absent.
 
 ### `course_notes_path(course_name) -> Path`
-Builds `output/{safe_course}/{COURSE CODE} - Notes.md`.
+Builds `<OUTPUT_DIR>/{safe_course}/{COURSE CODE} - Notes.md`.
 Extracts course code via regex `([A-Z]+-?[A-Z]*\s*\d{4}...)` from the full course name.
 Falls back to sanitised course name if no code found.
 Creates the parent directory.
@@ -95,11 +94,11 @@ Prepends `\n\n---\n\n` separator if the file already exists.
 Wraps content with `<!-- session: {session_name} -->` header for idempotency.
 
 ### `panopto_session_dir(course_name, session_name) -> Path`
-Creates `output/{safe_course}/Session {NN} - {date} - {safe_session}/materials/`.
+Creates `<OUTPUT_DIR>/{safe_course}/Session {NN} - {date} - {safe_session}/materials/`.
 Session number assigned by counting existing subdirectories + 1.
 
 ### `session_dir(course_name, module_name) -> Path`
-Creates `output/{safe_course}/{YYYY-MM-DD} - {safe_module}/materials/`.
+Creates `<OUTPUT_DIR>/{safe_course}/{YYYY-MM-DD} - {safe_module}/materials/`.
 Used for Canvas-mode sessions.
 
 ### `process_panopto_session(panopto, generator, session_id, course_name, session_name)`
