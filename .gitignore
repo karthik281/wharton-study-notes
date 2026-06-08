@@ -1,0 +1,16 @@
+# Credentials
+.env
+token.json
+credentials.json
+
+# Runtime output (notes are personal)
+output/
+logs/
+
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.coverage
