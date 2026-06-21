@@ -7,6 +7,9 @@ credentials.json
 output/
 logs/
 
+# Claude Code (commit shared settings.json, ignore machine-local overrides)
+.claude/settings.local.json
+
 # Python
 venv/
 __pycache__/

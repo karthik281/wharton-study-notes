@@ -83,7 +83,7 @@ PANOPTO_SERVER=upenn.hosted.panopto.com
 PANOPTO_COOKIE=.ASPXAUTH=...your-cookie-here...
 MAX_SESSIONS_PER_RUN=20
 
-# Optional: override where notes are saved (default: C:\Users\raoka\Documents\WEMBA\Term 4\Wharton Study Notes)
+# Optional: override where notes are saved (default: C:\Users\raoka\Documents\WEMBA\Term 4)
 # STUDY_NOTES_OUTPUT_DIR=C:\path\to\your\notes
 ```
 
@@ -105,13 +105,13 @@ The agent will:
 5. Save notes to `output/`
 
 Watch the terminal for progress. Any errors appear in `logs/agent.log`.
-Notes are saved to `C:\Users\raoka\Documents\WEMBA\Term 4\Wharton Study Notes` (or your `STUDY_NOTES_OUTPUT_DIR`).
+Notes are saved to `C:\Users\raoka\Documents\WEMBA\Term 4` (or your `STUDY_NOTES_OUTPUT_DIR`).
 
 ---
 
 ## 7. What to expect in the output folder
 
-After a successful run, the output folder (`C:\Users\raoka\Documents\WEMBA\Term 4\Wharton Study Notes` by default) looks like:
+After a successful run, the output folder (`C:\Users\raoka\Documents\WEMBA\Term 4` by default) looks like:
 
 ```
 Wharton Study Notes/

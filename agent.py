@@ -21,7 +21,7 @@ load_dotenv()
 SCRIPT_DIR = Path(__file__).parent
 LOG_DIR = SCRIPT_DIR / "logs"
 OUTPUT_DIR = Path(
-    os.getenv("STUDY_NOTES_OUTPUT_DIR", r"C:\Users\raoka\Documents\WEMBA\Term 4\Wharton Study Notes")
+    os.getenv("STUDY_NOTES_OUTPUT_DIR", r"C:\Users\raoka\Documents\WEMBA\Term 4")
 )
 
 REQUIRED_ENV_VARS = ["ANTHROPIC_API_KEY"]
@@ -115,9 +115,97 @@ def validate_config() -> None:
 # ---------------------------------------------------------------------------
 _SAFE_RE = re.compile(r'[<>:"/\\|?*]')
 
+_MONTHS = {1: "Jan", 2: "Feb", 3: "Mar", 4: "Apr", 5: "May", 6: "Jun",
+           7: "Jul", 8: "Aug", 9: "Sep", 10: "Oct", 11: "Nov", 12: "Dec"}
+
+# Standardized course folders. Each entry: identifying course numbers (year excluded),
+# the folder name "<SHORT> <CODE> - <Name>", and the notes-file code prefix.
+COURSE_CONFIG = [
+    ({"7310"}, "FNCE 7310 - Global Valuation & Risk Analysis", "FNCE 7310"),
+    ({"6360"}, "OIDD 6360 - Scaling Operations", "OIDD 6360"),
+    ({"6910", "8060"}, "OIDD-MGMT 6910 & LGST 8060 - Negotiations", "OIDD-MGMT 6910 & LGST 8060"),
+]
+
 
 def _safe(name: str) -> str:
     return _SAFE_RE.sub("-", name).strip()
+
+
+def _course_numbers(course_name: str) -> set[str]:
+    """4-digit course codes in the name, excluding the year (e.g. 2026)."""
+    return {n for n in re.findall(r"\b(\d{4})\b", course_name) if not 2000 <= int(n) <= 2099}
+
+
+def resolve_course(course_name: str) -> tuple[str, str]:
+    """Map a Panopto course name to (standard_folder_name, notes_code_prefix)."""
+    nums = _course_numbers(course_name)
+    for numbers, folder, code in COURSE_CONFIG:
+        if nums & numbers:
+            return folder, code
+    # Fallback for unknown courses: derive the code from the name.
+    m = re.search(r'([A-Z]+-?[A-Z]*\s*\d{4}(?:\s*&\s*[A-Z]+\s*\d{4})?)', course_name)
+    code = m.group(1).strip() if m else _safe(course_name)
+    return _safe(course_name), code
+
+
+def course_dir_for(course_name: str) -> Path:
+    folder, _ = resolve_course(course_name)
+    d = OUTPUT_DIR / folder
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+_INCOMPLETE_RE = re.compile(r"not\s*complete|incomplete", re.I)
+_SESSION_DATE_RE = re.compile(r"\b(\d{1,2})/(\d{1,2})\b")
+
+
+def _dedup_key(session_name: str):
+    """Group recordings of the same logical lecture: (course numbers, date)."""
+    nums = frozenset(_course_numbers(session_name))
+    m = _SESSION_DATE_RE.search(session_name)
+    return (nums, (int(m.group(1)), int(m.group(2)))) if m else None
+
+
+def dedup_sessions(panopto, sessions: list[dict]) -> list[dict]:
+    """Filter discovered Panopto sessions before processing:
+
+    1. Drop recordings flagged incomplete (e.g. names containing "Not Complete").
+    2. When several recordings share the same course + date (duplicate captures),
+       keep only the one with the longest transcript (the most complete capture).
+
+    Order of the surviving sessions is preserved (newest-first).
+    """
+    filtered = []
+    for s in sessions:
+        name = s.get("SessionName", "")
+        if _INCOMPLETE_RE.search(name):
+            logger.info("Skipping incomplete recording: %s", name)
+            continue
+        filtered.append(s)
+
+    # Group by logical-lecture key; sessions without a parseable date stay unique.
+    groups: dict = {}
+    for s in filtered:
+        key = _dedup_key(s.get("SessionName", "")) or ("uniq", s.get("Id"))
+        groups.setdefault(key, []).append(s)
+
+    keep_ids = set()
+    for group in groups.values():
+        if len(group) == 1:
+            keep_ids.add(group[0].get("Id"))
+            continue
+        best, best_len = None, -1
+        for s in group:
+            tlen = len(panopto.get_transcript(s.get("Id")) or "")
+            if tlen > best_len:
+                best, best_len = s, tlen
+        for s in group:
+            if s is not best:
+                logger.info("Skipping duplicate recording (shorter transcript): %s",
+                            s.get("SessionName", ""))
+        keep_ids.add(best.get("Id"))
+
+    return [s for s in filtered if s.get("Id") in keep_ids]
 
 
 def session_dir(course_name: str, module_name: str) -> Path:
@@ -128,29 +216,53 @@ def session_dir(course_name: str, module_name: str) -> Path:
     return folder
 
 
-def panopto_session_dir(course_name: str, session_name: str) -> Path:
-    """Create folder for Panopto-only session (materials only -- notes go to course level)."""
-    date_prefix = datetime.now().strftime("%Y-%m-%d")
-    course_dir = OUTPUT_DIR / _safe(course_name)
-    course_dir.mkdir(parents=True, exist_ok=True)
-    # Count existing session folders to assign next session number
-    existing = [d for d in course_dir.iterdir() if d.is_dir()]
-    session_num = len(existing) + 1
-    folder_name = f"Session {session_num:02d} - {date_prefix} - {_safe(session_name)}"
-    folder = course_dir / folder_name
+def _date_label(session_name: str) -> str:
+    """ddMonyy from a session name like '06/11 7pm | FNCE ...' -> '11Jun26'."""
+    m = re.search(r"\b(\d{1,2})/(\d{1,2})\b", session_name)
+    yref = re.search(r"\b20(\d{2})\b", session_name)
+    if m:
+        month, day = int(m.group(1)), int(m.group(2))
+        yy = yref.group(1) if yref else datetime.now().strftime("%y")
+        return f"{day:02d}{_MONTHS.get(month, '')}{yy}"
+    now = datetime.now()
+    return f"{now.day:02d}{_MONTHS[now.month]}{now.strftime('%y')}"
+
+
+def _next_session_num(course_dir: Path) -> int:
+    """Next zero-padded session number, based on existing '<NN> ...' folders."""
+    nums = [int(m.group(1)) for d in course_dir.iterdir()
+            if d.is_dir() and (m := re.match(r"^(\d{2})\s", d.name))]
+    return (max(nums) + 1) if nums else 1
+
+
+def derive_class_name(notes: str, fallback: str) -> str:
+    """Pull the lecture topic from the notes (first descriptive H2), else fallback."""
+    for line in notes.splitlines():
+        line = line.strip()
+        if line.startswith("## "):
+            text = line[3:].strip()
+            if re.match(r"^\d+\.", text) or text.lower().startswith(("session summary", "summary")):
+                continue
+            text = re.sub(r"^[^|]*\|\s*", "", text)   # drop a leading 'June 13, 7-10 AM | '
+            text = text.strip(" -")
+            if text:
+                return _safe(text)[:80]
+    return _safe(fallback)[:80]
+
+
+def make_session_dir(course_name: str, session_name: str, class_name: str) -> Path:
+    """Create a session folder named '<NN> <ddMonyy> - <Class Name>'."""
+    course_dir = course_dir_for(course_name)
+    folder = course_dir / f"{_next_session_num(course_dir):02d} {_date_label(session_name)} - {class_name}"
     folder.mkdir(parents=True, exist_ok=True)
     (folder / "materials").mkdir(exist_ok=True)
     return folder
 
 
 def course_notes_path(course_name: str) -> Path:
-    """Return path to the single combined notes file for a course."""
-    course_dir = OUTPUT_DIR / _safe(course_name)
-    course_dir.mkdir(parents=True, exist_ok=True)
-    # Extract course code e.g. "OIDD 6360" from full course name
-    match = re.search(r'([A-Z]+-?[A-Z]*\s*\d{4}(?:\s*&\s*[A-Z]+\s*\d{4})?)', course_name)
-    code = match.group(1).strip() if match else _safe(course_name)
-    return course_dir / f"{code} - Notes.md"
+    """Return the single combined notes file for a course."""
+    _, code = resolve_course(course_name)
+    return course_dir_for(course_name) / f"{code} - Notes.md"
 
 
 def append_session_notes(course_name: str, session_name: str, notes: str) -> Path:
@@ -245,17 +357,11 @@ def process_panopto_session(panopto, generator, session_id: str, course_name: st
         logger.info("Notes already exist for this session -- skipping: %s", session_name)
         return
 
-    # Session folder for materials/transcript
-    folder = panopto_session_dir(course_name, session_name)
-
     # 1. Fetch transcript
     transcript = panopto.get_transcript(session_id)
     if not transcript:
         logger.warning("  No transcript available for session '%s' -- skipping", session_name)
         return
-
-    (folder / "materials" / "transcript.txt").write_text(transcript, encoding="utf-8")
-    logger.info("  Transcript saved (%d chars)", len(transcript))
 
     # 2. Generate notes
     notes = generator.generate(
@@ -265,7 +371,13 @@ def process_panopto_session(panopto, generator, session_id: str, course_name: st
         materials=[],
     )
 
-    # 3. Append to course-level notes.md
+    # 3. Create the session folder (named from the derived lecture topic) and save materials
+    class_name = derive_class_name(notes, session_name)
+    folder = make_session_dir(course_name, session_name, class_name)
+    (folder / "materials" / "transcript.txt").write_text(transcript, encoding="utf-8")
+    logger.info("  Transcript saved (%d chars) -> %s", len(transcript), folder.name)
+
+    # 4. Append to course-level notes.md
     saved_path = append_session_notes(course_name, session_name, notes)
     logger.info("  Notes appended: %s", saved_path)
 
@@ -319,6 +431,7 @@ def _run_panopto_mode(generator, panopto) -> None:
         logger.warning("No sessions found. Check PANOPTO_COOKIE is valid and MAX_SESSIONS_PER_RUN is set.")
         return
 
+    sessions = dedup_sessions(panopto, sessions)
     logger.info("Found %d session(s) to process", len(sessions))
 
     processed = 0

@@ -19,6 +19,7 @@ from agent import (
     course_notes_path,
     append_session_notes,
     process_panopto_session,
+    dedup_sessions,
 )
 
 
@@ -244,3 +245,47 @@ class TestIdempotency:
         content = notes_path.read_text(encoding="utf-8")
         assert f"<!-- session: {session_name} -->" in content
         assert "# Generated Notes" in content
+
+
+class TestDedupSessions:
+    def _panopto(self, transcripts):
+        p = MagicMock()
+        p.get_transcript.side_effect = lambda sid: transcripts.get(sid, "")
+        return p
+
+    def test_drops_incomplete_recording(self):
+        sessions = [
+            {"Id": "a", "SessionName": "06/12 7am | FNCE 7310 (51 Global) - Su26 - Not Complete"},
+            {"Id": "b", "SessionName": "FNCE7310 Session 5 (06/12) Su26 - Complete Video"},
+        ]
+        kept = dedup_sessions(self._panopto({}), sessions)
+        ids = [s["Id"] for s in kept]
+        assert ids == ["b"]
+
+    def test_keeps_longest_transcript_among_duplicates(self):
+        name = "6/13 7-10 am OIDD/MGMT 6910 & LGST 8060 (51 Global) - Summer 2026"
+        sessions = [
+            {"Id": "short", "SessionName": name},
+            {"Id": "full", "SessionName": name},
+        ]
+        panopto = self._panopto({"short": "x" * 11000, "full": "x" * 79000})
+        kept = dedup_sessions(panopto, sessions)
+        assert [s["Id"] for s in kept] == ["full"]
+
+    def test_distinct_sessions_all_kept_in_order(self):
+        sessions = [
+            {"Id": "1", "SessionName": "05/30 7am | OIDD 6360 (51 Global) - Summer 2026"},
+            {"Id": "2", "SessionName": "05/29 7am | FNCE 7310 (51 Global) - Summer 2026"},
+            {"Id": "3", "SessionName": "5/28 7-10 pm OIDD/MGMT 6910 & LGST 8060 (51 Global) - Summer 2026"},
+        ]
+        kept = dedup_sessions(self._panopto({}), sessions)
+        assert [s["Id"] for s in kept] == ["1", "2", "3"]
+
+    def test_same_date_different_course_not_merged(self):
+        # OIDD 5/29 and FNCE 5/29 share a date but are different courses.
+        sessions = [
+            {"Id": "oidd", "SessionName": "05/29 7PM | OIDD 6360 (51 Global) - Summer 2026"},
+            {"Id": "fnce", "SessionName": "05/29 7am | FNCE 7310 (51 Global) - Summer 2026"},
+        ]
+        kept = dedup_sessions(self._panopto({}), sessions)
+        assert {s["Id"] for s in kept} == {"oidd", "fnce"}

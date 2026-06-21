@@ -81,7 +81,7 @@
 
 ```powershell
 # Example: delete notes for OIDD 6360 (adjust path to your STUDY_NOTES_OUTPUT_DIR)
-Remove-Item "C:\Users\raoka\Documents\WEMBA\Term 4\Wharton Study Notes\OIDD 6360 (51 Global) - Summer 2026\OIDD 6360 - Notes.md"
+Remove-Item "C:\Users\raoka\Documents\WEMBA\Term 4\OIDD 6360 (51 Global) - Summer 2026\OIDD 6360 - Notes.md"
 ```
 
 Then re-run:

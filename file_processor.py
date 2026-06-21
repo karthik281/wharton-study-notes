@@ -9,7 +9,8 @@ from docx import Document
 
 logger = logging.getLogger("study_notes.files")
 
-SUPPORTED_EXTENSIONS = {".pdf", ".pptx", ".ppt", ".docx", ".doc", ".txt"}
+SUPPORTED_EXTENSIONS = {".pdf", ".pptx", ".ppt", ".docx", ".doc", ".txt",
+                        ".xlsx", ".xlsm", ".html", ".htm"}
 
 
 def extract_pdf_text(path: Path) -> str:
@@ -62,6 +63,46 @@ def extract_docx_text(path: Path) -> str:
         return ""
 
 
+def extract_xlsx_text(path: Path, max_rows: int = 300) -> str:
+    try:
+        from openpyxl import load_workbook
+        wb = load_workbook(str(path), read_only=True, data_only=True)
+        sheets = []
+        for ws in wb.worksheets:
+            rows = []
+            for i, row in enumerate(ws.iter_rows(values_only=True)):
+                if i >= max_rows:
+                    break
+                cells = [str(c).strip() for c in row if c is not None and str(c).strip()]
+                if cells:
+                    rows.append(" | ".join(cells))
+            if rows:
+                sheets.append(f"[Sheet: {ws.title}]\n" + "\n".join(rows))
+        wb.close()
+        result = "\n\n".join(sheets)
+        logger.debug("XLSX '%s': extracted %d chars", path.name, len(result))
+        return result
+    except Exception as exc:
+        logger.warning("Could not extract XLSX '%s': %s", path.name, exc)
+        return ""
+
+
+def extract_html_text(path: Path) -> str:
+    try:
+        from lxml import html as lxml_html
+        root = lxml_html.parse(str(path)).getroot()
+        for bad in root.xpath("//script | //style"):
+            bad.getparent().remove(bad)
+        text = root.text_content()
+        lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+        result = "\n".join(lines)
+        logger.debug("HTML '%s': extracted %d chars", path.name, len(result))
+        return result
+    except Exception as exc:
+        logger.warning("Could not extract HTML '%s': %s", path.name, exc)
+        return ""
+
+
 def extract_text(path: Path) -> str:
     """Auto-detect file type and extract text. Returns empty string if unsupported."""
     ext = path.suffix.lower()
@@ -71,6 +112,10 @@ def extract_text(path: Path) -> str:
         return extract_pptx_text(path)
     if ext in (".docx", ".doc"):
         return extract_docx_text(path)
+    if ext in (".xlsx", ".xlsm"):
+        return extract_xlsx_text(path)
+    if ext in (".html", ".htm"):
+        return extract_html_text(path)
     if ext == ".txt":
         try:
             return path.read_text(encoding="utf-8", errors="ignore")

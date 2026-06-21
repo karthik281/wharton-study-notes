@@ -70,7 +70,7 @@ A biweekly Python agent that authenticates to Panopto via browser cookie, discov
 
 ## Output Structure
 
-Default output directory: `C:\Users\raoka\Documents\WEMBA\Term 4\Wharton Study Notes`
+Default output directory: `C:\Users\raoka\Documents\WEMBA\Term 4`
 Override with `STUDY_NOTES_OUTPUT_DIR` in `.env`.
 
 ```
