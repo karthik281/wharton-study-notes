@@ -116,10 +116,16 @@ def main() -> None:
     concepts_dir = Path(a.concepts_dir) if a.concepts_dir else course_dir / "Concepts"
     moc = a.moc or f"{a.code} - MOC"
 
-    tdir = folder / "transcripts"
-    tfiles = sorted((p for p in tdir.glob("*.txt") if p.stat().st_size > 0), key=numeric_key)
+    # Transcripts live in materials/ (project convention: video.mp4 + transcript.txt
+    # + slides all in materials/). Legacy async modules use a transcripts/ subfolder,
+    # so accept both.
+    tfiles = sorted(
+        (p for d in (folder / "materials", folder / "transcripts")
+         for p in d.glob("*.txt") if p.stat().st_size > 0),
+        key=numeric_key,
+    )
     if not tfiles:
-        print(f"No transcripts found in {tdir}")
+        print(f"No transcripts found in {folder / 'materials'} or {folder / 'transcripts'}")
         raise SystemExit(1)
 
     concept_names = sorted(p.stem for p in concepts_dir.glob("*.md")) if concepts_dir.exists() else []

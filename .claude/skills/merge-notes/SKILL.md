@@ -22,7 +22,7 @@ Use when the user supplies their own notes (handwritten, typed, or pasted) for a
 ## Project conventions
 
 - Notes base: `C:\Users\raoka\Documents\WEMBA\Term 4` (override `STUDY_NOTES_OUTPUT_DIR`). Course folders: `FNCE 7310 - ...`, `OIDD 6360 - Scaling Operations`, `OIDD-MGMT 6910 & LGST 8060 - Negotiations`.
-- The target note is the module's `<Title>.md` at the module-folder root. **Source transcripts** for verification live in `<module>/transcripts/*.txt` (ASR — treat slides/case as the spelling/number source of truth). Slides in `materials/*.pdf`.
+- The target note is the module's `<Title>.md` at the module-folder root. **Source transcripts** for verification live in `<module>/materials/transcript.txt` (ASR — treat slides/case as the spelling/number source of truth), alongside `materials/video.mp4` and the slide `materials/*.pdf`. (Legacy async modules may instead use a `transcripts/*.txt` subfolder.)
 - Concepts vocabulary: `<course folder>/Concepts/*.md` stems are the exact `[[wikilink]]` targets.
 - PowerShell rule (CLAUDE.md): never `cd` then run; use absolute paths.
 

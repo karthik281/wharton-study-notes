@@ -20,6 +20,24 @@ Use when the user wants a **new** study note synthesized for a Wharton module/le
 
 One Obsidian-ready `<Module Title>.md` inside the module folder: YAML frontmatter + `# Title` + MOC backlink + a thorough, faithful, study-note body (not a summary) that follows the lecture's arc, reconciles audio against slides/case, shows worked numbers, and links concepts with `[[wikilinks]]`.
 
+## Full pipeline — do ALL of this every time (user requirement)
+
+Building the note is only the middle of the job. For **every** new lecture, all of the following must happen — do not stop at the note:
+
+1. **Discover the Panopto session** for the lecture and get its session ID (`scripts/check_new_sessions.py` to list newest sessions + readiness; then map title/date to the slide folder the user created).
+2. **Assemble `materials/`** — *video, slides, and transcript ALL go into one `materials/` folder* inside the module folder:
+   - **Transcript** → `materials/transcript.txt` (fetch via `PanoptoClient.get_transcript(session_id)`).
+   - **Video** → `materials/video.mp4` (download via `scripts/download_one.py <session_id> "<.../materials/video.mp4>"` — multi-GB, run in background).
+   - **Slides** → move the user's slide PDF(s) into `materials/`.
+   - Do **not** create a separate `transcripts/` folder for live sessions (legacy async modules are the only exception).
+3. **Name the folder** to the vault convention `NN DDMmmYY - Topic` (the note title == folder name); confirm the topic from the slide deck's title slide.
+4. **Build the note** (`scripts/build_module_notes.py` — it now reads the transcript from `materials/`). Add the `date: YYYY-MM-DD` frontmatter field (the script omits it; siblings have it).
+5. **Update the three course-level aggregate files** (they are NOT auto-generated):
+   - **`<CODE> - Master Notes.md`** — append the new session body (`scripts/append_to_master.py "<master>" "<note>"`) AND add the session to its `## Contents` wikilink list.
+   - **`<CODE> - MOC.md`** — update the `## Sessions` table row (replace any "full digest not yet filed" placeholder with the real `[[wikilink]]` + one-line summary).
+   - **`<CODE> - Dashboard.md`** — add the session to its `## Sessions` table.
+6. **Merge the user's raw notes** if they supplied any (see the **merge-notes** skill).
+
 **Preferred path — compose the existing script.** `scripts/build_module_notes.py` is a parameterized generator (generalized from `build_resource_notes.py`): give it `--folder/--title/--course/--course-short/--code/--session/--tags` and optional `--moc/--sibling`, and it gathers transcripts + slides/case, calls Claude, derives the `concepts:` frontmatter from the wikilinks used, and writes `<Title>.md` (refusing to overwrite). This is the "let Claude orchestrate, not regenerate boilerplate" path — prefer it. Run it (needs `ANTHROPIC_API_KEY` in `.env`):
 
 ```
@@ -34,7 +52,7 @@ One Obsidian-ready `<Module Title>.md` inside the module folder: YAML frontmatte
   - `FNCE 7310 - Global Valuation & Risk Analysis`
   - `OIDD 6360 - Scaling Operations`
   - `OIDD-MGMT 6910 & LGST 8060 - Negotiations`
-- **Module folder layout:** transcripts in `<module>/transcripts/*.txt`; slide decks in `<module>/materials/*.pdf`; case files in a `<...> Case/` subfolder (`*.pdf`, `*.xlsx`, `*.html`). The note `.md` is written at the module-folder root.
+- **Module folder layout:** `<module>/materials/` holds **everything** for the lecture — `video.mp4`, `transcript.txt`, and the slide deck(s) `*.pdf`. Case files go in a separate `<...> Case/` subfolder (`*.pdf`, `*.xlsx`, `*.html`). The note `.md` is written at the module-folder root. (Legacy async modules used a separate `transcripts/` subfolder; the build script still accepts that, but new live sessions use `materials/transcript.txt`.)
 - **Concepts live per course** in `<course folder>/Concepts/*.md`. The file *stems* are the exact `[[wikilink]]` targets.
 - **PowerShell rule (from CLAUDE.md):** never `cd` then run; always use absolute paths. To run the build script:
   `& "C:\Users\raoka\Documents\Ideas\Agents\Wharton Study Notes\venv\Scripts\python.exe" "C:\Users\raoka\Documents\Ideas\Agents\Wharton Study Notes\scripts\build_resource_notes.py"`
